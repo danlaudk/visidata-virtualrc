@@ -4,6 +4,17 @@ vd.option('virtualrc_app_id', '', 'app id for virtual RC')
 vd.option('virtualrc_app_secret', '', 'secret key for virtual RC')
 
 
+@Sheet.api
+def get_dict_of_rows(sheet):
+    return [{col.name:val for col,val in dispvals.items() } for dispvals in sheet.iterdispvals()]
+
+@Sheet.api
+def daniel_cmd(sheet, d):
+    vd.status(str(d))
+
+Sheet.addCommand('', 'daniel-cmd', 'daniel_cmd(get_dict_of_rows())')
+
+
 @VisiData.api
 def open_vrc(vd, p):
     return VirtualRCSheet(p.name, source=p)
