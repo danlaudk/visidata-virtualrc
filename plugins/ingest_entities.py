@@ -11,8 +11,9 @@ def get_dict_of_rows(sheet):
 @Sheet.api
 def daniel_cmd(sheet, d):
     vd.status(str(d))
+    # send dictionary d to plot-bot
 
-Sheet.addCommand('', 'daniel-cmd', 'daniel_cmd(get_dict_of_rows())')
+Sheet.addCommand('', 'virtualrc-plot-second-col', 'daniel_cmd(get_dict_of_rows())')
 
 
 @VisiData.api
