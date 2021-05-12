@@ -1,6 +1,7 @@
 # visidata-virtualrc
 
 ingests virtualrc stream of entities into visidata
+
 virtualrc-cmd within [visidata](https://www.visidata.org) will (not yet done) plot the second visible column of the current visidata sheet to virtualrc 
 
 # use
