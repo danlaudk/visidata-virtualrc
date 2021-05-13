@@ -3,3 +3,4 @@ venv/
 /*/
 !/plugins/
 !.gitignore
+!plotter.py
