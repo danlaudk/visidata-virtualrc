@@ -6,9 +6,9 @@ virtualrc-cmd within [visidata](https://www.visidata.org) will (not yet done) pl
 
 # use
 
-i use virtualenv. thus git clone then
+i use venv. thus git clone then
 
-    virtualenv venv
+    python -m venv ./venv
     source venv/activate/bin
     pip install git+https://github.com/tobiasfeistmantl/python-actioncable-zwei.git&egg=ActionCableZwei
     pip3 install visidata
