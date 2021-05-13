@@ -38,12 +38,70 @@ class PlotBot:
         print(f"[Placer Bot {self.b_id}]: init")
 
     def post_wall(self, wall):
+        self._move_to(wall['wall']['pos']['x'] + 1, wall['wall']['pos']['y'])
+        self._orient('left')
         res = requests.post(
             url=f"https://recurse.rctogether.com/api/walls?app_id={ID}&app_secret={SEC}&bot_id={self.b_id}",
             json=wall)
         print(res.json())
+        # self.plotted.append(res.json()["id"])  # (wall['wall']['pos']['x'], wall['wall']['pos']['y'],
         self.plotted.append((wall['wall']['pos']['x'], wall['wall']['pos']['y'], res.json()["id"]))
         return res
+
+    # def _place_wall(self, x, y, clr="gray", txt=" "):
+    #     self._move_to(x+1, y)
+    #     jsn = {"bot_id": self.b_id,
+    #            "wall": {
+    #                "pos": {
+    #                    "x": x,
+    #                    "y": y
+    #                },
+    #                "color": clr,
+    #                "wall_text": txt
+    #            }}
+    #     res = post("", jsn, WALLURL)
+    #
+    #     self.pegs.append((x, y, res.json()["id"]))
+    #     print(f"[Plotter Bot {self.b_id}]: made wall with params x={x}, y={y}, clr={clr}, txt={txt}")
+
+    def _erase_wall(self, x, y, idx):
+        j = {"bot_id": self.b_id}
+        # self._move_to(x+1, y)
+        # self._orient('right')
+        delete(idx, j, WALLURL)
+        print(f"[Plotter Bot {self.b_id}]: erased wall at x={x}, y={y}")
+
+    def _move_to(self, x, y):
+        jsn = {"bot": {"x": x, "y": y}}
+        patch(self.b_id, jsn)
+        print(f"[Plotter Bot {self.b_id}]: moved to position x={x}, y={y}")
+
+    def _orient(self, direct):
+        jsn = {"bot": {"direction": direct}}
+        patch(self.b_id, jsn)
+        print(f"[Plotter Bot {self.b_id}]: changed orientation to {direct}")
+
+    def clear(self):
+        while self.plotted:
+            x, y, idx = self.plotted.pop()
+            self._erase_wall(x, y, idx)
+
+        print(f"[Plotter Bot {self.b_id}]: walls cleared")
+
+    # def clear(self):
+    #     print("self" + str(self.b_id) +", self.plotted" + str(self.plotted))
+    #     while self.plotted:
+    #         x, y, idx = self.plotted.pop()
+    #         print("start erase " + idx + " x:" + x)
+    #         self._erase_wall(x, y, idx)
+    #     print(f"[Plotter Bot {self.b_id}]: walls cleared")
+
+    def file_out(self):
+        import csv
+        with open('./wallids.csv', 'w', newline='') as myfile:
+            print(self.plotted)
+            wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+            wr.writerow(self.plotted)
 
     def plot(self, list_ints):
         for i in list_ints:
@@ -79,8 +137,9 @@ class PlotBot:
         return {key1: twolists[0], key2: twolists[1]}
 
     #129. 109 is bottomrow position
-    # takes dict of two arrays.
+    # takes dict of two arrays, so call the above before passing to here.
     def plot_named_horizontals(self, dic, x, y, note_text):
+        self.clear()
         names_to_write_on_walls = list(dic.values())[0]
         wall_lengths = list(dic.values())[1]
         colours = ["gray", "pink", "orange", "green", "blue", "purple",  "yellow"]
@@ -98,12 +157,12 @@ class PlotBot:
             col = colours[k % len(colours)]
             plot_one_wall(names_to_write_on_walls[k], wall_lengths[k], x, y - k, col)
 
-            note_text = "Plot of " + str(list(dic.keys())[1]) + " against " + str(list(dic.keys())[0])
-            note = {'note': {'x': x - 1, 'y': y, 'note_text': note_text}}
-            res_note = requests.post(
-                url=f"https://recurse.rctogether.com/api/notes?app_id={ID}&app_secret={SEC}&bot_id={self.b_id}",
-                json=note)
-            print(res_note)
+            # note_text = "Plot of " + str(list(dic.keys())[1]) + " against " + str(list(dic.keys())[0])
+            # note = {'note': {'pos': {'x': x - 1, 'y': y}, 'note_text': note_text}}
+            # res_note = requests.post(
+            #     url=f"https://recurse.rctogether.com/api/notes?app_id={ID}&app_secret={SEC}&bot_id={self.b_id}",
+            #     json=note)
+            # print(res_note)
 # end PlotBot
 
 def delete_bot():
@@ -128,6 +187,30 @@ def sub_on_receive(message):
         update_bot()
         time.sleep(30)
         delete_bot()
+
+
+# ==== REST API ================================================================
+
+BOTURL = "https://recurse.rctogether.com/api/bots/"
+NOTEURL = "https://recurse.rctogether.com/api/notes/"
+WALLURL = "https://recurse.rctogether.com/api/walls/"
+
+
+def post(id, j, url=BOTURL):
+    return requests.post(url+str(id), json=j, auth=(ID, SEC))
+
+
+def patch(id, j, url=BOTURL):
+    return requests.patch(url+str(id), json=j, auth=(ID, SEC))
+
+
+def delete(id, j=None, url=BOTURL):
+    if j is None:
+        return requests.delete(url+str(id), auth=(ID, SEC))
+    else:
+        return requests.delete(url+str(id), json=j, auth=(ID, SEC))
+
+# ==== REST API ================================================================
 
 
 if __name__ == "__main__":
@@ -185,10 +268,20 @@ if __name__ == "__main__":
     # init_bot()
     b_id = get_bot()
     PLOT_BOT = PlotBot()
+    # dic = {['one', "sdf sdf sdf ", ""], [5, 3, 5]}
+    # PLOT_BOT.plot_named_horizontals(dic, 129,109,"")
+
+    # PLOT_BOT.clear()
     wall = {'wall': {'pos': {'x': 129, 'y': 109}, 'color': "yellow", 'wall_text': '!'}}
     res = PLOT_BOT.post_wall(wall)
+    wall = {'wall': {'pos': {'x': 130, 'y': 109}, 'color': "yellow", 'wall_text': '!'}}
+    res = PLOT_BOT.post_wall(wall)
+    print(PLOT_BOT.plotted)
+    PLOT_BOT.file_out()
 
-# note = {'note': {'x': 129 - 1, 'y': 109, 'note_text': "asdf"}, 'bot_id': b_id}
+    PLOT_BOT.clear()
+
+    # note = {'note': {'pos': {'x': 129 - 3, 'y': 109}, 'note_text': "asdf", 'color': "gray"}, 'bot_id': b_id}
     # res = requests.post(
     #     url=f"https://recurse.rctogether.com/api/notes?app_id={ID}&app_secret={SEC}&bot_id={b_id}",
     #     json=note)
