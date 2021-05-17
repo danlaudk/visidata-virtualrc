@@ -9,7 +9,6 @@ vd.option('virtualrc_app_secret', '', 'secret key for virtual RC')
 
 @Sheet.api
 def get_dict_of_rows(sheet):
-
     def array_dict_to_dict_two_list(array_dict):
         key1 = list(array_dict[0].keys())[0]
         key2 = list(array_dict[0].keys())[1]
@@ -17,25 +16,28 @@ def get_dict_of_rows(sheet):
         twolists = [[li[i] for li in manylists] for i in range(2)]
         return {key1: twolists[0], key2: [math.trunc(i) for i in twolists[1]]}
 
-    array_dicts = [{col.name:val for col,val in dispvals.items() } for dispvals in sheet.iterdispvals()]
+    array_dicts = [{col.name: val for col, val in dispvals.items()} for dispvals in sheet.iterdispvals()]
     print(array_dicts)
     dict_of_two_list = array_dict_to_dict_two_list(array_dicts)
     PLOT_BOT = PlotBot()
     # dic = {'asd': ['one', "sdf sdf sdf ", ""], 'randint': [5, 3, 5]}
 
-    PLOT_BOT.plot_named_horizontals(dict_of_two_list, 129,109,"")
+    PLOT_BOT.plot_named_horizontals(dict_of_two_list, 129, 109, "")
+
 
 @Sheet.api
 def plot_col_vertically(sheet):
-    singlecol = [dispvals.items() for dispvals in sheet.iterdispvals()]
-    print(singlecol)
+    singlecol = [n for dispvals in sheet.iterdispvals() for n in list(dispvals.values())]
+    # print("single col " + str(singlecol))
     PLOT_BOT = PlotBot()
     PLOT_BOT.plot(singlecol)
+
 
 @Sheet.api
 def daniel_cmd(sheet, d):
     vd.status(str(d))
     # send dictionary d to plot-bot
+
 
 Sheet.addCommand('', 'virtualrc-plot-horizontal-second-col', 'daniel_cmd(get_dict_of_rows())')
 Sheet.addCommand('', 'vertical-only-col-virtualrc', 'daniel_cmd(plot_col_vertically())')
@@ -47,8 +49,8 @@ def open_vrc(vd, p):
 
 
 class VirtualRCSheet(TableSheet):
-    rowtype='entities'  # rowdef: dict from JSON response)
-    columns=[
+    rowtype = 'entities'  # rowdef: dict from JSON response)
+    columns = [
         ItemColumn('msg_type', 'type'),
         ItemColumn('user', 'payload.person_name'),
         ItemColumn('id', 'payload.id', width=0),
@@ -79,7 +81,7 @@ class VirtualRCSheet(TableSheet):
             "can_be_mentioned": True,
         }
     }
-    bot_message = { 'text': 'A bot for collecting RC Together data' }
+    bot_message = {'text': 'A bot for collecting RC Together data'}
 
     @property
     def creds(self):
@@ -116,6 +118,9 @@ class VirtualRCSheet(TableSheet):
             r = requests.patch(url=f"https://recurse.rctogether.com/api/messages?bot_id={b_id}&{self.creds}",
                             json=self.bot_message)
             vd.status(f"update_bot status: {r.status_code}")
+            # for entity in msg["payload"]["entities"]:
+            #     self.addRow(entity)
+
 
             # delete bot
 #            r = requests.delete(url=f"https://recurse.rctogether.com/api/bots/{b_id}?app_id={ID}&app_secret={SEC}")
@@ -132,29 +137,32 @@ BOTURL = "https://recurse.rctogether.com/api/bots/"
 NOTEURL = "https://recurse.rctogether.com/api/notes/"
 WALLURL = "https://recurse.rctogether.com/api/walls/"
 import os
+
 ID = os.getenv('VIRTUALRCID')
 SEC = os.getenv('VIRTUALRCSEC')
 
+
 def post(id, j, url=BOTURL):
-    return requests.post(url+str(id), json=j, auth=(ID, SEC))
+    return requests.post(url + str(id), json=j, auth=(ID, SEC))
 
 
 def patch(id, j, url=BOTURL):
-    return requests.patch(url+str(id), json=j, auth=(ID, SEC))
+    return requests.patch(url + str(id), json=j, auth=(ID, SEC))
 
 
 def delete(id, j=None, url=BOTURL):
     if j is None:
-        return requests.delete(url+str(id), auth=(ID, SEC))
+        return requests.delete(url + str(id), auth=(ID, SEC))
     else:
-        return requests.delete(url+str(id), json=j, auth=(ID, SEC))
+        return requests.delete(url + str(id), json=j, auth=(ID, SEC))
+
 
 # ==== REST API ================================================================
 
 class PlotBot:
 
     def __init__(self):
-        self.b_id = 79123
+        self.b_id = 79126
         self.plotted = []
         print(f"[Plotter Bot {self.b_id}]: init")
 
@@ -164,13 +172,15 @@ class PlotBot:
         res = requests.post(
             url=f"https://recurse.rctogether.com/api/walls?app_id={ID}&app_secret={SEC}&bot_id={self.b_id}",
             json=wall)
-        print("[Plotter Bot {self.b_id}]:" + str(res.json()) + " while trying to wall " + str(wall['wall']['pos']['x']) + ", " + str(wall['wall']['pos']['y'])  )
-        self.plotted.append((wall['wall']['pos']['x'], wall['wall']['pos']['y'], res.json()["id"]))
+        print("[Plotter Bot {self.b_id}]:" + str(res.status_code) + "end status." + str(res.json()) + " while trying to wall " + str(
+            wall['wall']['pos']['x']) + ", " + str(wall['wall']['pos']['y']) + ", " + str(wall['wall']['wall_text']))
+        if res.status_code is not None & (res.status_code == 200 | int(res.status_code) == 200):
+            self.plotted.append((wall['wall']['pos']['x'], wall['wall']['pos']['y'], res.json()["id"]))
         return res
 
     def _erase_wall(self, x, y, idx):
         j = {"bot_id": self.b_id}
-        self._move_to(x+1, y)
+        self._move_to(x + 1, y)
         res = delete(idx, j, WALLURL)
         print(f"[Plotter Bot {self.b_id}]: " + str(res.json()) + " while  erasing wall at x={x}, y={y}")
 
@@ -207,24 +217,43 @@ class PlotBot:
             wr.writerow(self.plotted)
 
     @asyncthread
-    def plot(self, list_ints):
-        for i in list_ints:
-            self.plot_int_vertical_base10(i, 100 + i, 108, self.b_id)
+    def plot(self, list_str):
+        list_int = list(map(lambda y: math.trunc(float(y)), filter(lambda x: (x != '') & (x is not None), list_str)))
+        for idx, intg in enumerate(list_int):
+            self.plot_int_vertical(intg, 100 + idx, 108)
+            # self.plot_int_vertical_base10(i, 100 + i, 108, self.b_id)
+        print(self.plotted)
+        self.file_out()
+        sleep(10)
+        self.clear()
 
-    def plot_int_vertical_base10(self, i, x, y0, base=10):
-        colours = ["gray", "pink", "orange", "green", "blue", "purple",  "yellow"]
-
-        def plot_digit(i, modulo, x, y):
-            (q, r) = divmod(i, modulo)
-            if q > 0:
-                col = colours[math.trunc(math.log10(modulo))]
-                wall = {'wall': {'x': x, 'y': y, 'color': col, 'wall_text': str(q)}}
+    def plot_int_vertical(self,  i, x, y):
+        if i is not None:
+            colours = ["gray", "pink", "orange", "green", "blue", "purple", "yellow"]
+            willreversechars = [char for char in str(i)]
+            willreversechars.reverse()
+            for idx, char in enumerate(willreversechars):
+                col = colours[idx % len(colours)]
+                wall = {'wall': {'pos': {'x': x, 'y': y - idx}, 'color': col, 'wall_text': char}}
                 res = self.post_wall(wall)
-                plot_digit(i, modulo*base, x, y+1)  # recursive call
                 print(f"update_wall status: {res.status_code}")
-            return 0
+
+    # not ready
+    def plot_int_vertical_base10(self, i, x, y0, base=10):
+        colours = ["gray", "pink", "orange", "green", "blue", "purple", "yellow"]
+
+        def plot_digit(i, divis, x, y):
+            (q, r) = divmod(i, divis)
+            col = colours[math.trunc(math.log10(divis))]
+            wall = {'wall': {'pos': {'x': x, 'y': y}, 'color': col, 'wall_text': str(r)}}
+            res = self.post_wall(wall)
+            print(f"update_wall status: {res.status_code}")
+            if q > 0:
+                plot_digit(i, divis * base, x, y + 1)  # recursive call
+            return 0  # no reason yet
+
         # plot walls out of integer i
-        plot_digit(i, 1, x, y0)
+        plot_digit(i, base, x, y0)
 
     def scale_vector(self, li_wall_lengths):
         if li_wall_lengths:
@@ -239,19 +268,19 @@ class PlotBot:
         else:
             print("error: no wall lengths")
 
-    #129. 109 is bottomrow position
+    # 129. 109 is bottomrow position
     # takes dict of two arrays, so call the above before passing to here.
     @asyncthread
     def plot_named_horizontals(self, dic, x, y, note_text):
         self.clear()
         names_to_write_on_walls = list(dic.values())[0]
         wall_lengths = self.scale_vector(list(dic.values())[1])
-        colours = ["gray", "pink", "orange", "green", "blue", "purple",  "yellow"]
+        colours = ["gray", "pink", "orange", "green", "blue", "purple", "yellow"]
 
-        def plot_one_wall(graffiti, wall_length , x0, y0, col):
+        def plot_one_wall(graffiti, wall_length, x0, y0, col):
             for j in range(wall_length):
                 graffiti_len = len(str(graffiti))
-                wall_text = ''  # default
+                wall_text = ' '  # default
                 if j < graffiti_len:
                     wall_text = str(graffiti)[j]
                 wall = {'wall': {'pos': {'x': x0 + j, 'y': y0}, 'color': col, 'wall_text': wall_text}}
@@ -266,7 +295,7 @@ class PlotBot:
 
         print(self.plotted)
         self.file_out()
-        sleep(10)
+        # sleep(10)
         self.clear()
         # note_text = "Plot of " + str(list(dic.keys())[1]) + " against " + str(list(dic.keys())[0])
         # note = {'note': {'pos': {'x': x - 1, 'y': y}, 'note_text': note_text}}

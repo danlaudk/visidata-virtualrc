@@ -33,7 +33,7 @@ def get_bot():
 
 class PlotBot:
     def __init__(self):
-        self.b_id = 79123
+        self.b_id = 79126
         self.plotted = []
         print(f"[Plotter Bot {self.b_id}]: init")
 
@@ -50,18 +50,24 @@ class PlotBot:
     def _erase_wall(self, x, y, idx):
         j = {"bot_id": self.b_id}
         self._move_to(x+1, y)
+        print("moved")
         res = delete(idx, j, WALLURL)
-        print(f"[Plotter Bot {self.b_id}]: " + str(res.json()) + " while  erasing wall at x={x}, y={y}")
+        print(res.status_code)
+        if res.status_code == 200:
+            print(f"[Plotter Bot {self.b_id}]:  erasing wall at x={x}, y={y}")
+        else:
+            print(f"[Plotter Bot {self.b_id}]: ERROR "  + str(res.json()) + " while  erasing wall at x={x}, y={y}")
 
     def _move_to(self, x, y):
+        print("moving")
         jsn = {"bot": {"x": x, "y": y}}
-        patch(self.b_id, jsn)
-        print(f"[Plotter Bot {self.b_id}]: moved to position x={x}, y={y}")
+        res = patch(self.b_id, jsn)
+        print(f"[Plotter Bot {self.b_id}]: " + str(res.json()) + " while to position x={x}, y={y}")
 
     def _orient(self, direct):
         jsn = {"bot": {"direction": direct}}
-        patch(self.b_id, jsn)
-        print(f"[Plotter Bot {self.b_id}]: changed orientation to {direct}")
+        res = patch(self.b_id, jsn)
+        print(f"[Plotter Bot {self.b_id}]: " + str(res.json()) + " while orientation to {direct}")
 
     def clear(self):
         while self.plotted:
@@ -149,6 +155,12 @@ class PlotBot:
             #     url=f"https://recurse.rctogether.com/api/notes?app_id={ID}&app_secret={SEC}&bot_id={self.b_id}",
             #     json=note)
             # print(res_note)
+
+    def clear_manual(self, x0, y0, x1, y1):
+        for y in reversed(range(y0,y1)):
+            for x in reversed(range(x0,x1)):
+                self._erase_wall(x, y, 82011)
+
 # end PlotBot
 
 def delete_bot():
@@ -251,10 +263,13 @@ if __name__ == "__main__":
         r = requests.post(url=f"https://recurse.rctogether.com/api/bots?app_id={ID}&app_secret={SEC}", json=bot_info)
         print(f"Init status: {r.status_code}")
 
+    get_bot()
+
     PLOT_BOT = PlotBot()
-    li = [{'a': 'asd', 'b': 3}, {'a':None, 'b':3}, {'a': 'ere', 'b': 2, 'c':2} ]
-    di = PLOT_BOT.array_dict_to_dict_two_arrays(li)
-    print(str(di))
+    PLOT_BOT.clear_manual( 128, 109, 153, 113)
+    # li = [{'a': 'asd', 'b': 3}, {'a':None, 'b':3}, {'a': 'ere', 'b': 2, 'c':2} ]
+    # di = PLOT_BOT.array_dict_to_dict_two_arrays(li)
+    # print(str(di))
 
     # # # init_bot()
     #
