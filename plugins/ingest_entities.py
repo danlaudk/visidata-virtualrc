@@ -32,6 +32,14 @@ def plot_col_vertically(sheet):
     PLOT_BOT = PlotBot()
     PLOT_BOT.plot(singlecol)
 
+# requires use world sheet. clears all wall rows on sheet
+# requires sort rows in reverse order of bot-build: on sheet nav to y, [, nav to x, z] (ie. sort asc y, 2ndry-sort desc x)
+@Sheet.api
+def clear_walls(sheet):
+    array_dicts = [{col.name: val for col, val in dispvals.items()} for dispvals in sheet.iterdispvals()]
+    PLOT_BOT = PlotBot()
+    for d in array_dicts:
+        PLOT_BOT._erase_wall(d['x'], d['y'], d['id'])
 
 @Sheet.api
 def daniel_cmd(sheet, d):
@@ -41,6 +49,7 @@ def daniel_cmd(sheet, d):
 
 Sheet.addCommand('', 'virtualrc-plot-horizontal-second-col', 'daniel_cmd(get_dict_of_rows())')
 Sheet.addCommand('', 'vertical-only-col-virtualrc', 'daniel_cmd(plot_col_vertically())')
+Sheet.addCommand('', 'walls-remove-virtualrc', 'daniel_cmd(get_walls())')
 
 
 @VisiData.api
@@ -50,23 +59,42 @@ def open_vrc(vd, p):
 
 class VirtualRCSheet(TableSheet):
     rowtype = 'entities'  # rowdef: dict from JSON response)
+    # columns = [
+    #     ItemColumn('msg_type', 'type'),
+    #     ItemColumn('user', 'payload.person_name'),
+    #     ItemColumn('id', 'payload.id', width=0),
+    #     ItemColumn('type', 'payload.type'),
+    #     ItemColumn('x', 'payload.pos.x', type=int),
+    #     ItemColumn('y', 'payload.pos.y', type=int),
+    #     ItemColumn('dir', 'payload.direction'),
+    #     ItemColumn('muted', 'payload.muted'),
+    #     ItemColumn('updated_at', 'payload.updated_at', type=date, fmtstr='%H:%M'),
+    #     ItemColumn('payload.image_path', width=0),
+    #     ItemColumn('user_id', 'payload.user_id', width=0),
+    #     ItemColumn('last_present', 'payload.last_present_at', width=0, fmtstr='%H:%M'),
+    #     ItemColumn('last_idle', 'payload.last_idle_at', width=0, fmtstr='%H:%M'),
+    #     ItemColumn('payload.zoom_user_display_name', width=0),
+    #     ItemColumn('payload.zoom_meeting_topic', width=0),
+    #     ItemColumn('msg', 'payload.message.text'),
+    #     ItemColumn('msg_sent', 'payload.message.sent_at', type=date),
+    #     ItemColumn('payload.message.mentioned_entity_ids', type=vlen, width=0),
+    # ]
     columns = [
         ItemColumn('msg_type', 'type'),
-        ItemColumn('user', 'payload.person_name'),
-        ItemColumn('id', 'payload.id', width=0),
-        ItemColumn('type', 'payload.type'),
-        ItemColumn('x', 'payload.pos.x', type=int),
-        ItemColumn('y', 'payload.pos.y', type=int),
-        ItemColumn('dir', 'payload.direction'),
+        ItemColumn('id', 'id', width=9),
+        ItemColumn('x', 'pos.x', type=int),
+        ItemColumn('y', 'pos.y', type=int),
+        ItemColumn('user', 'person_name'),
+        ItemColumn('dir', 'direction'),
         ItemColumn('muted', 'payload.muted'),
-        ItemColumn('updated_at', 'payload.updated_at', type=date, fmtstr='%H:%M'),
+        ItemColumn('updated_at', 'updated_at', type=date, fmtstr='%H:%M'),
         ItemColumn('payload.image_path', width=0),
-        ItemColumn('user_id', 'payload.user_id', width=0),
-        ItemColumn('last_present', 'payload.last_present_at', width=0, fmtstr='%H:%M'),
-        ItemColumn('last_idle', 'payload.last_idle_at', width=0, fmtstr='%H:%M'),
+        ItemColumn('user_id', 'user_id', width=0),
+        ItemColumn('last_present', 'last_present_at', width=0, fmtstr='%H:%M'),
+        ItemColumn('last_idle', 'last_idle_at', width=0, fmtstr='%H:%M'),
         ItemColumn('payload.zoom_user_display_name', width=0),
         ItemColumn('payload.zoom_meeting_topic', width=0),
-        ItemColumn('msg', 'payload.message.text'),
+        ItemColumn('msg', 'message.text'),
         ItemColumn('msg_sent', 'payload.message.sent_at', type=date),
         ItemColumn('payload.message.mentioned_entity_ids', type=vlen, width=0),
     ]
@@ -109,17 +137,17 @@ class VirtualRCSheet(TableSheet):
             self.world = msg
             # initialize bot info
             r = requests.post(url=f"https://recurse.rctogether.com/api/bots?{self.creds}", json=self.bot_info)
-            self.addRow(r.json())
+            # self.addRow(r.json())
             # get bot id
             r = requests.get(url=f"https://recurse.rctogether.com/api/bots?{self.creds}")
-            self.addRow(r.json())
+            # self.addRow(r.json())
             b_id = r.json()[0]['id']
             # update bot message
             r = requests.patch(url=f"https://recurse.rctogether.com/api/messages?bot_id={b_id}&{self.creds}",
                             json=self.bot_message)
             vd.status(f"update_bot status: {r.status_code}")
-            # for entity in msg["payload"]["entities"]:
-            #     self.addRow(entity)
+            for entity in msg["payload"]["entities"]:
+                self.addRow(entity)
 
 
             # delete bot
@@ -176,18 +204,29 @@ class PlotBot:
             wall['wall']['pos']['x']) + ", " + str(wall['wall']['pos']['y']) + ", " + str(wall['wall']['wall_text']))
         if res.status_code is not None & (res.status_code == 200 | int(res.status_code) == 200):
             self.plotted.append((wall['wall']['pos']['x'], wall['wall']['pos']['y'], res.json()["id"]))
+        else:
+            print("RESPONSECODE SAD")
         return res
 
     def _erase_wall(self, x, y, idx):
         j = {"bot_id": self.b_id}
-        self._move_to(x + 1, y)
-        res = delete(idx, j, WALLURL)
-        print(f"[Plotter Bot {self.b_id}]: " + str(res.json()) + " while  erasing wall at x={x}, y={y}")
+        res = self._move_to(x + 1, y)
+        if res:
+            res = delete(idx, j, WALLURL)
+            if res.status_code != 200:
+                print(f"[Plotter Bot {self.b_id}]:" + str(res.json()) + f"while deleting  x={x}, y={y}")
+            else:
+                print(f"[Plotter Bot {self.b_id}]: deleted wall x={x}, y={y}")
+                return res
 
     def _move_to(self, x, y):
         jsn = {"bot": {"x": x, "y": y}}
-        patch(self.b_id, jsn)
-        print(f"[Plotter Bot {self.b_id}]: moved to position x={x}, y={y}")
+        res = patch(self.b_id, jsn)
+        if res.status_code != 200:
+            print(f"[Plotter Bot {self.b_id}]:" + str(res.json()) + f"while moving to position x={x}, y={y}")
+        else:
+            print(f"[Plotter Bot {self.b_id}]: moved to x={x}, y={y}")
+            return res
 
     def _orient(self, direct):
         jsn = {"bot": {"direction": direct}}
